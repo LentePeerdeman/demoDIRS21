@@ -19,7 +19,7 @@ namespace DIRS21_Demo.Controllers
         }
 
         // GET: api/Images/5
-        [HttpGet("{id}", Name = "Get")]
+        [HttpGet("{id}")]
         public string Get(int id)
         {
             return "value";
