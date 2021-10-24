@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DIRS21_Demo.Interfaces;
 using DIRS21_Demo.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ using MongoDB.Driver;
 
 namespace DIRS21_Demo.Services
 {
-    public class ServicesService
+    public class ServicesService : IServicesService
     {
         private readonly IMongoCollection<Service> _services;
 
@@ -22,26 +23,30 @@ namespace DIRS21_Demo.Services
         }
         #endregion
 
-        public IEnumerable<string> Get()
+        public async Task<IList<Service>> GetAsync()
         {
-            return new string[] { "value1", "value2" };
+            return await _services.Find(s => true).ToListAsync();
         }
 
-        public string Get(int id)
+        public async Task<Service> GetAsync(string id)
         {
-            return "value";
+            return await _services.Find(s => s.name == id).FirstOrDefaultAsync();
         }
 
-        public void Post([FromBody] string value)
+        public async Task CreateAsync([FromBody] Service input)
         {
+            input.dbId = null;
+            await _services.InsertOneAsync(input);
         }
 
-        public void Put(int id, [FromBody] string value)
+        public async Task<ReplaceOneResult> UpdateAsync([FromBody] Service input)
         {
+            return await _services.ReplaceOneAsync(s => s.dbId == input.dbId, input);
         }
 
-        public void Delete(int id)
+        public async Task<DeleteResult> DeleteAsync(string serviceId)
         {
+            return await _services.DeleteOneAsync(s => s.serviceId == serviceId);
         }
     }
 }

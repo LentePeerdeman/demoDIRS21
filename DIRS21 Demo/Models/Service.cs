@@ -3,11 +3,13 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace DIRS21_Demo.Models
 {
-    internal class Service
+    public class Service
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string id { get; set; }
+        public string dbId { get; set; }
+        public string serviceId { get; set; }
+        public int version { get; set; }
 
         public string name { get; set; }
         public string desc { get; set; }

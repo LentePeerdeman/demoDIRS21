@@ -3,13 +3,14 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace DIRS21_Demo.Models
 {
-    internal class Booking
+    public class Booking
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string id { get; set; }
+        public string dbId { get; set; }
+        public string bookingId { get; set; }
+        public int version { get; set; }
 
-        public string reservationId { get; set; }
         public BsonDateTime date { get; set; }
         public bool paid { get; set; }
     }
