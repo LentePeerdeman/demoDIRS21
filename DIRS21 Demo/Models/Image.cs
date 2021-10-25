@@ -10,9 +10,9 @@ namespace DIRS21_Demo.Models
         public string dbId { get; set; }
         public string imageId { get; set; }
         public int version { get; set; }
+        public string serviceId { get; set; }
 
         public string name { get; set; }
         public string url { get; set; }
-        public string serviceId { get; set; }
     }
 }

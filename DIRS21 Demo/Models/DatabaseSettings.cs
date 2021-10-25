@@ -1,4 +1,4 @@
-﻿namespace DIRS21_Demo.Services
+﻿namespace DIRS21_Demo.Models
 {
     public class DatabaseSettings
     {

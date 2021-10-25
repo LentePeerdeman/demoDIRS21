@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DIRS21_Demo.Models;
-using DIRS21_Demo.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using DIRS21_Demo.Services;
+using DIRS21_Demo.Interfaces;
+using Serilog;
 
 namespace DIRS21_Demo.Controllers
 {
@@ -14,73 +16,112 @@ namespace DIRS21_Demo.Controllers
     [ApiController]
     public class ServicesController : ControllerBase
     {
-        private readonly IServicesService _service;
+        private readonly IServicesService _servicesService;
+        private readonly IImagesService _imagesService;
+        private readonly IBookingsService _bookingsService;
 
-        public ServicesController(IServicesService service)
+        public ServicesController(IServicesService servicesService, IImagesService imagesService, IBookingsService bookingsService)
         {
-            _service = service;
+            _servicesService = servicesService;
+            _imagesService = imagesService;
+            _bookingsService = bookingsService;
         }
 
         // GET: api/Services
         [HttpGet]
         public async Task<IEnumerable<Service>> GetAsync()
         {
-            return await _service.Get();
+            HttpContext.Response.StatusCode = 200;
+            return await _servicesService.GetAsync();
         }
 
         // GET: api/Services/5
         [HttpGet("{id}")]
         public async Task<Service> GetAsync(string id)
         {
-            return await _service.Get(id);
+            HttpContext.Response.StatusCode = 200;
+            return await _servicesService.GetAsync(id);
         }
 
         // POST: api/Services
         [HttpPost]
-        public void Post([FromBody] Service input)
+        public async Task PostAsync([FromBody] Service input)
         {
-            _service.UpdateAsync(input);
+            HttpContext.Response.StatusCode = 205;
+            await _servicesService.CreateAsync(input);
         }
 
-        // PUT: api/Services/5
-        [HttpPut("{id}")]
-        public async Task<int?> PutAsync(int id, [FromBody] Service input)
+        // PUT: api/Services
+        [HttpPut]
+        public async Task<int?> UpdateAsync([FromBody] Service input)
         {
-            Service service = await _service.Get(input.serviceId);
-            if (service.version == input.version)
+            try
             {
+                Service service = await _servicesService.GetAsync(input.serviceId);
+
                 input.dbId = service.dbId;
                 input.version = input.version + 1;
-                ReplaceOneResult result = await _service.UpdateAsync(input);
+                ServiceResultEnum result = await _servicesService.UpdateAsync(input);
 
-                if (result.IsAcknowledged)
+                if (result == ServiceResultEnum.NotFound) { HttpContext.Response.StatusCode = 404; }
+                else if (result == ServiceResultEnum.BadRequest) { HttpContext.Response.StatusCode = 400; }
+                else if (result == ServiceResultEnum.ResetContent) { HttpContext.Response.StatusCode = 205; }
+                else if (result == ServiceResultEnum.InternalServerError) { HttpContext.Response.StatusCode = 500; }
+
+                if (result != ServiceResultEnum.ResetContent)
                 {
-                    HttpContext.Response.StatusCode = 205;
+                    Log.Information("Updated {0}", input.serviceId);
                     return input.version;
                 }
-
-                HttpContext.Response.StatusCode = 409;
-                return null;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
             }
 
-            HttpContext.Response.StatusCode = 404;
-            return null;
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return 0;
         }
 
         // DELETE: api/ApiWithActions/5
-        [HttpDelete("{id}")]
+        [HttpDelete("{serviceId}")]
         public async Task DeleteAsync(string serviceId)
         {
-            DeleteResult result = await _service.DeleteAsync(serviceId);
-
-            if (result.IsAcknowledged)
+            try
             {
-                HttpContext.Response.StatusCode = 200;
+                ServiceResultEnum deleteBookingsResult = await _bookingsService.DeleteByServiceIdAsync(serviceId);
+                ServiceResultEnum deleteImagesResult = await _imagesService.DeleteByServiceIdAsync(serviceId);
+
+                if (deleteBookingsResult == ServiceResultEnum.OK && deleteImagesResult == ServiceResultEnum.OK)
+                {
+                    ServiceResultEnum result = await _servicesService.DeleteAsync(serviceId);
+
+                    if (result == ServiceResultEnum.OK)
+                    {
+                        Log.Information("Deleted {0}", serviceId);
+                        HttpContext.Response.StatusCode = 200;
+                    }
+                    else
+                    {
+                        HttpContext.Response.StatusCode = 404;
+                    }
+                    return;
+                }
+                else
+                {
+                    HttpContext.Response.StatusCode = 404;
+                }
                 return;
             }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
 
-            HttpContext.Response.StatusCode = 404;
-            return;
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
         }
     }
 }

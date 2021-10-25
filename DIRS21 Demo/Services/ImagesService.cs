@@ -6,42 +6,96 @@ using DIRS21_Demo.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using Serilog;
 
 namespace DIRS21_Demo.Services
 {
-    public class ImagesService
+    public class ImagesService : IImagesService
     {
-        private readonly IMongoCollection<Image> _bookings;
+        private readonly IMongoCollection<Image> _service;
 
-        #region BookingsServiceConstructor
+        #region ImagesServiceConstructor
         public ImagesService(DatabaseSettings settings)
         {
             var client = new MongoClient(settings.ConnectionString);
             var database = client.GetDatabase(settings.DatabaseName);
-            _bookings = database.GetCollection<Image>(settings.BookingsCollectionName);
+            _service = database.GetCollection<Image>(settings.ImagesCollectionName);
         }
         #endregion
 
-        public IEnumerable<string> Get()
+        public async Task<IList<Image>> GetAsync()
         {
-            return new string[] { "value1", "value2" };
+            return await _service.Find(s => true).ToListAsync();
         }
 
-        public string Get(int id)
+        public async Task<Image> GetAsync(string id)
         {
-            return "value";
+            return await _service.Find(s => s.name == id).FirstOrDefaultAsync();
         }
 
-        public void Post([FromBody] string value)
+        public async Task<IEnumerable<Image>> GetByServiceAsync(string serviceId)
         {
+            return await _service.Find(s => s.serviceId == serviceId).ToListAsync();
         }
 
-        public void Put(int id, [FromBody] string value)
+        public async Task CreateAsync(Image input)
         {
+            input.dbId = null;
+            await _service.InsertOneAsync(input);
         }
 
-        public void Delete(int id)
+        public async Task<ServiceResultEnum> UpdateAsync([FromBody] Image input)
         {
+            try
+            {
+                ReplaceOneResult result = await _service.ReplaceOneAsync(s => s.dbId == input.dbId && s.version == input.version, input);
+
+                if (result.MatchedCount < 1) { return ServiceResultEnum.NotFound; }
+                else if (result.MatchedCount != 1) { return ServiceResultEnum.BadRequest; }
+                else if (result.ModifiedCount != 1) { return ServiceResultEnum.InternalServerError; }
+
+                return ServiceResultEnum.ResetContent;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            return ServiceResultEnum.InternalServerError;
+        }
+
+        public async Task<ServiceResultEnum> DeleteAsync(string imageId)
+        {
+            try
+            {
+                DeleteResult result = await _service.DeleteOneAsync(s => s.imageId == imageId);
+
+                if (result.DeletedCount == 1) { return ServiceResultEnum.OK; }
+                return ServiceResultEnum.NotFound;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            return ServiceResultEnum.InternalServerError;
+        }
+
+        public async Task<ServiceResultEnum> DeleteByServiceIdAsync(string serviceId)
+        {
+            try
+            {
+                DeleteResult result = await _service.DeleteOneAsync(s => s.serviceId == serviceId);
+
+                if (result.DeletedCount == 1) { return ServiceResultEnum.OK; }
+                return ServiceResultEnum.NotFound;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            return ServiceResultEnum.InternalServerError;
         }
     }
 }
