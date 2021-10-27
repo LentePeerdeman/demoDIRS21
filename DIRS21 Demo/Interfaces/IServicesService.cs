@@ -7,7 +7,7 @@ namespace DIRS21_Demo.Interfaces
 {
     public interface IServicesService
     {
-        Task CreateAsync(Service input);
+        Task<string> CreateAsync(Service input);
         Task<ServiceResultEnum> DeleteAsync(string serviceId);
         Task<IList<Service>> GetAsync();
         Task<Service> GetAsync(string id);

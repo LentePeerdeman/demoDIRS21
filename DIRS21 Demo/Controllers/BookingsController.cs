@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using DIRS21_Demo.Interfaces;
 using DIRS21_Demo.Models;
@@ -15,55 +14,152 @@ namespace DIRS21_Demo.Controllers
     public class BookingsController : ControllerBase
     {
         private readonly IBookingsService _bookingsService;
-        private readonly IServicesService _servicesService;
 
-        public BookingsController(IBookingsService bookingsService, IServicesService servicesService)
+        public BookingsController(IBookingsService bookingsService)
         {
             _bookingsService = bookingsService;
-            _servicesService = servicesService;
         }
 
-        // POST: api/Bookings/GetByDay
-        [HttpPost]
-        [Route("api/[controller]/GetByDayAsync")]
-        public async Task<IList<Booking>> GetByDayAsync([FromBody] BookingRequest request)
+        // Get: api/Bookings/5
+        [HttpGet("{bookingId}")]
+        public async Task<Booking> GetAsync(string bookingId)
         {
-            HttpContext.Response.StatusCode = 200;
-            return await _bookingsService.GetByDayAsync(request);
+            try
+            {
+                Booking result = await _bookingsService.GetAsync(bookingId);
+
+                if (result == null)
+                {
+                    // Not found
+                    HttpContext.Response.StatusCode = 404;
+                }
+                else
+                {
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
 
-        // POST: api/Bookings/GetByService
-        [HttpPost]
-        [Route("api/[controller]/GetByService")]
-        public async Task<IList<Booking>> GetByServiceAsync([FromBody] BookingRequest request)
+        // Get: api/Bookings/GetByDay/01.01.1900
+        [HttpGet]
+        [Route("GetByDay/{day}")]
+        public async Task<IList<Booking>> GetByDayAsync(string day)
         {
-            HttpContext.Response.StatusCode = 200;
-            return await _bookingsService.GetByServiceAsync(request);
+            try
+            {
+                IList<Booking> result = await _bookingsService.GetByDayAsync(day);
+
+                if (result == null)
+                {
+                    // Not found
+                    HttpContext.Response.StatusCode = 404;
+                }
+                else
+                {
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
 
-        // POST: api/Bookings/GetByServiceAndDay
-        [HttpPost]
-        [Route("api/[controller]/GetByServiceAndDay")]
-        public async Task<IList<Booking>> GetByServiceAndDayAsync([FromBody] BookingRequest request)
+        // Get: api/Bookings/GetByService/5
+        [HttpGet]
+        [Route("GetByService/{serviceId}")]
+        public async Task<IList<Booking>> GetByServiceAsync(string serviceId)
         {
-            HttpContext.Response.StatusCode = 200;
-            return await _bookingsService.GetByServiceAndDayAsync(request);
+            try
+            {
+                IList<Booking> result = await _bookingsService.GetByServiceAsync(serviceId);
+
+                if (result == null)
+                {
+                    // Not found
+                    HttpContext.Response.StatusCode = 404;
+                }
+                else
+                {
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
+        }
+
+        // Get: api/Bookings/GetByServiceAndDay/5/01.01.2021
+        [HttpGet]
+        [Route("GetByServiceAndDay/{serviceId}/{date}")]
+        public async Task<IList<Booking>> GetByServiceAndDayAsync(string serviceId, string date)
+        {
+            try
+            {
+                IList<Booking> result = await _bookingsService.GetByServiceAndDateAsync(serviceId, date);
+
+                if (result == null)
+                {
+                    // Not found
+                    HttpContext.Response.StatusCode = 404;
+                }
+                else
+                {
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
 
         // POST: api/Bookings
         [HttpPost]
-        public async Task PostAsync([FromBody] Booking input)
+        public async Task<string> PostAsync([FromBody] Booking input)
         {
-            HttpContext.Response.StatusCode = 205;
-            await CreateBooking(input);
+            return await CreateBooking(input);
         }
 
         // POST: api/Bookings/5
-        [HttpPost]
-        public async Task PostByServiceAsync(string serviceId, [FromBody] Booking input)
+        [HttpPost("{serviceId}")]
+        public async Task<string> PostByServiceAsync(string serviceId, [FromBody] Booking input)
         {
             input.serviceId = serviceId;
-            await CreateBooking(input);
+            return await CreateBooking(input);
         }
 
         // PUT: api/Bookings/5
@@ -72,18 +168,18 @@ namespace DIRS21_Demo.Controllers
         {
             try
             {
-                Booking booking = await _bookingsService.GetAsync(input.bookingId);
-
-                input.dbId = booking.dbId;
-                input.version = input.version + 1;
                 ServiceResultEnum result = await _bookingsService.UpdateAsync(input);
 
+                // Not found
                 if (result == ServiceResultEnum.NotFound) { HttpContext.Response.StatusCode = 404; }
+                // Bad Request
                 else if (result == ServiceResultEnum.BadRequest) { HttpContext.Response.StatusCode = 400; }
+                // Reset Content (OK)
                 else if (result == ServiceResultEnum.ResetContent) { HttpContext.Response.StatusCode = 205; }
+                // Internal Server Error
                 else if (result == ServiceResultEnum.InternalServerError) { HttpContext.Response.StatusCode = 500; }
 
-                if (result != ServiceResultEnum.ResetContent)
+                if (result == ServiceResultEnum.ResetContent)
                 {
                     Log.Information("Updated {0}", input.bookingId);
                     return input.version;
@@ -100,7 +196,7 @@ namespace DIRS21_Demo.Controllers
             return 0;
         }
 
-        // DELETE: api/ApiWithActions/5
+        // DELETE: api/Bookings/5
         [HttpDelete("{bookingId}")]
         public async Task DeleteAsync(string bookingId)
         {
@@ -128,24 +224,31 @@ namespace DIRS21_Demo.Controllers
             HttpContext.Response.StatusCode = 500;
         }
 
-        private async Task CreateBooking(Booking input)
+        private async Task<string> CreateBooking(Booking input)
         {
             try
             {
-                Service service = await _servicesService.GetAsync(input.serviceId);
-                IList<Booking> bookings = await _bookingsService.GetByServiceAndDayAsync(new BookingRequest(input.serviceId, input.date.ToLocalTime()));
-
-                if (service.quantity > bookings.Count)
+                if (await _bookingsService.CreateAsync(input) != null)
                 {
+                    // OK
                     HttpContext.Response.StatusCode = 200;
-                    await _bookingsService.CreateAsync(input);
+                    return input.bookingId;
+                }
+                else
+                {
+                    // Conflict
+                    HttpContext.Response.StatusCode = 409;
+                    return null;
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex.Message);
-                HttpContext.Response.StatusCode = 500;
             }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
     }
 }

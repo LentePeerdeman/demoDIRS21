@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using DIRS21_Demo.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
-using DIRS21_Demo.Services;
 using DIRS21_Demo.Interfaces;
 using Serilog;
 
@@ -17,20 +14,17 @@ namespace DIRS21_Demo.Controllers
     public class ServicesController : ControllerBase
     {
         private readonly IServicesService _servicesService;
-        private readonly IImagesService _imagesService;
-        private readonly IBookingsService _bookingsService;
 
-        public ServicesController(IServicesService servicesService, IImagesService imagesService, IBookingsService bookingsService)
+        public ServicesController(IServicesService servicesService)
         {
             _servicesService = servicesService;
-            _imagesService = imagesService;
-            _bookingsService = bookingsService;
         }
 
         // GET: api/Services
         [HttpGet]
         public async Task<IEnumerable<Service>> GetAsync()
         {
+            // OK
             HttpContext.Response.StatusCode = 200;
             return await _servicesService.GetAsync();
         }
@@ -39,16 +33,57 @@ namespace DIRS21_Demo.Controllers
         [HttpGet("{id}")]
         public async Task<Service> GetAsync(string id)
         {
-            HttpContext.Response.StatusCode = 200;
-            return await _servicesService.GetAsync(id);
+            try
+            {
+                Service result = await _servicesService.GetAsync(id);
+
+                if (result == null)
+                {
+                    // Not found
+                    HttpContext.Response.StatusCode = 404;
+                }
+                else
+                {
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
 
         // POST: api/Services
         [HttpPost]
-        public async Task PostAsync([FromBody] Service input)
+        public async Task<string> PostAsync([FromBody] Service input)
         {
-            HttpContext.Response.StatusCode = 205;
-            await _servicesService.CreateAsync(input);
+            try
+            {
+                // Calling the service
+                string serviceId = await _servicesService.CreateAsync(input);
+
+                if (!string.IsNullOrEmpty(serviceId))
+                {
+                    // Reset Content (OK)
+                    HttpContext.Response.StatusCode = 205;
+                    return serviceId;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+
+            Log.Error("Returning StatusCode 500");
+            HttpContext.Response.StatusCode = 500;
+            return null;
         }
 
         // PUT: api/Services
@@ -57,18 +92,19 @@ namespace DIRS21_Demo.Controllers
         {
             try
             {
-                Service service = await _servicesService.GetAsync(input.serviceId);
-
-                input.dbId = service.dbId;
-                input.version = input.version + 1;
+                // Calling the service
                 ServiceResultEnum result = await _servicesService.UpdateAsync(input);
 
+                // Not found
                 if (result == ServiceResultEnum.NotFound) { HttpContext.Response.StatusCode = 404; }
+                // Bad Request
                 else if (result == ServiceResultEnum.BadRequest) { HttpContext.Response.StatusCode = 400; }
+                // Reset Content (OK)
                 else if (result == ServiceResultEnum.ResetContent) { HttpContext.Response.StatusCode = 205; }
+                // Internal Server Error
                 else if (result == ServiceResultEnum.InternalServerError) { HttpContext.Response.StatusCode = 500; }
 
-                if (result != ServiceResultEnum.ResetContent)
+                if (result == ServiceResultEnum.ResetContent)
                 {
                     Log.Information("Updated {0}", input.serviceId);
                     return input.version;
@@ -91,29 +127,21 @@ namespace DIRS21_Demo.Controllers
         {
             try
             {
-                ServiceResultEnum deleteBookingsResult = await _bookingsService.DeleteByServiceIdAsync(serviceId);
-                ServiceResultEnum deleteImagesResult = await _imagesService.DeleteByServiceIdAsync(serviceId);
+                ServiceResultEnum result = await _servicesService.DeleteAsync(serviceId);
 
-                if (deleteBookingsResult == ServiceResultEnum.OK && deleteImagesResult == ServiceResultEnum.OK)
+                if (result == ServiceResultEnum.OK)
                 {
-                    ServiceResultEnum result = await _servicesService.DeleteAsync(serviceId);
-
-                    if (result == ServiceResultEnum.OK)
-                    {
-                        Log.Information("Deleted {0}", serviceId);
-                        HttpContext.Response.StatusCode = 200;
-                    }
-                    else
-                    {
-                        HttpContext.Response.StatusCode = 404;
-                    }
-                    return;
+                    Log.Information("Deleted {0}", serviceId);
+                    // OK
+                    HttpContext.Response.StatusCode = 200;
                 }
                 else
                 {
+                    // Not found
                     HttpContext.Response.StatusCode = 404;
                 }
                 return;
+
             }
             catch (Exception ex)
             {

@@ -7,11 +7,10 @@ namespace DIRS21_Demo.Interfaces
 {
     public interface IImagesService
     {
-        Task CreateAsync(Image input);
+        Task<string> CreateAsync(Image input);
         Task<ServiceResultEnum> DeleteAsync(string imageId);
-        Task<ServiceResultEnum> DeleteByServiceIdAsync(string serviceId);
         Task<IList<Image>> GetAsync();
-        Task<Image> GetAsync(string id);
+        Task<Image> GetAsync(string imageId);
         Task<IEnumerable<Image>> GetByServiceAsync(string serviceId);
         Task<ServiceResultEnum> UpdateAsync([FromBody] Image input);
     }

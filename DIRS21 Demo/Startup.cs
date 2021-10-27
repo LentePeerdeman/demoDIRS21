@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DIRS21_Demo.Interfaces;
 using DIRS21_Demo.Models;
 using DIRS21_Demo.Services;
 using Microsoft.AspNetCore.Builder;
@@ -34,9 +35,9 @@ namespace DIRS21_Demo
             services.AddSingleton<DatabaseSettings>(sp =>
                 sp.GetRequiredService<IOptions<DatabaseSettings>>().Value);
 
-            services.AddSingleton<ServicesService>();
-            services.AddSingleton<ImagesService>();
-            services.AddSingleton<BookingsService>();
+            services.AddSingleton<IServicesService, ServicesService>();
+            services.AddSingleton<IImagesService, ImagesService>();
+            services.AddSingleton<IBookingsService, BookingsService>();
 
             services.AddControllers();
         }
